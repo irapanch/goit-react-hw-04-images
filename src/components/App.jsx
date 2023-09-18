@@ -1,107 +1,85 @@
-import React, { Component } from 'react';
-import { Searchbar } from './Searchbar/Searchbar';
+import React, { useState, useEffect } from 'react';
+import Searchbar from './Searchbar/Searchbar';
 import { StyledApp, StyledFailure } from 'styles/App.Styled';
 import { ImageGallery } from './ImageGallery/ImageGallery';
 import { Button } from './Button/Button';
-import { Modal } from './Modal/Modal';
+import Modal from './Modal/Modal';
 import { getImages } from 'services/pixabay';
 import { Loader } from './Loader/Loader';
 
-class App extends Component {
-  state = {
-    gallery: [],
-    page: 1,
-    q: null,
-    isLoading: false,
-    error: null,
-    isOpen: false,
-    modalImage: '',
-    max: 0,
-    altModal: '',
-  };
+const App = () => {
+  const [gallery, setGallery] = useState([]);
+  const [page, setPage] = useState(1);
+  const [q, setQ] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [modalImage, setModalImage] = useState('');
+  const [max, setMax] = useState(0);
+  const [altModal, setAltModal] = useState('');
 
-  async componentDidUpdate(_, prevState) {
-    if (prevState.q !== this.state.q || prevState.page !== this.state.page) {
-      this.setState({ isLoading: true });
+  useEffect(() => {
+    fetchData();
+  }, [q, page]);
 
-      try {
-        const res = await getImages({
-          q: this.state.q,
-          page: this.state.page,
-        });
-        const max = Math.ceil(res.data.totalHits / 12);
-
-        this.setState(prev => ({
-          gallery: [...prev.gallery, ...res.data.hits],
-          max,
-        }));
-      } catch (error) {
-        this.setState({ error: error });
-      } finally {
-        this.setState({ isLoading: false });
-      }
+  const fetchData = async () => {
+    if (!q) {
+      return;
     }
-  }
-  handleSubmit = value => {
-    this.setState({ q: value.trim(), page: 1, gallery: [] });
+    setIsLoading(true);
+
+    try {
+      const res = await getImages({ q, page });
+      const max = Math.ceil(res.data.totalHits / 12);
+      setGallery(prevGallery => [...prevGallery, ...res.data.hits]);
+      setMax(max);
+    } catch (error) {
+      setError(error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  handleBtnLoadMore = () => {
-    this.setState({ page: this.state.page + 1 });
+  const handleSubmit = value => {
+    setQ(value.trim());
+    setPage(1);
+    setGallery([]);
   };
 
-  handleToggleModal = (image, alt) => {
-    this.setState({
-      isOpen: !this.state.isOpen,
-      modalImage: image,
-      altModal: alt,
-    });
+  const handleBtnLoadMore = () => {
+    setPage(prevPage => prevPage + 1);
   };
 
-  render() {
-    const {
-      gallery,
-      isLoading,
-      isOpen,
-      modalImage,
-      error,
-      max,
-      page,
-      q,
-      altModal,
-    } = this.state;
-    return (
-      <StyledApp>
-        <Searchbar onSubmit={this.handleSubmit} />
+  const handleToggleModal = (image, alt) => {
+    setIsOpen(!isOpen);
+    setModalImage(image);
+    setAltModal(alt);
+  };
 
-        {isLoading && <Loader />}
-        {error && (
-          <StyledFailure>Ooops... Something went wrong! </StyledFailure>
-        )}
-        {!gallery.length && q && !isLoading && (
-          <StyledFailure>
-            Sorry, there are no images matching your search query. Please try
-            again!
-          </StyledFailure>
-        )}
-        <ImageGallery
-          handleToggleModal={this.handleToggleModal}
-          gallery={gallery}
+  return (
+    <StyledApp>
+      <Searchbar onSubmit={handleSubmit} />
+      {isLoading && <Loader />}
+      {error && <StyledFailure>Ooops... Something went wrong! </StyledFailure>}
+      {!gallery.length && q && !isLoading && (
+        <StyledFailure>
+          Sorry, there are no images matching your search query. Please try
+          again!
+        </StyledFailure>
+      )}
+      <ImageGallery handleToggleModal={handleToggleModal} gallery={gallery} />
+      {gallery.length > 0 && page !== max && (
+        <Button handleBtnLoadMore={handleBtnLoadMore} />
+      )}
+      {isOpen && (
+        <Modal
+          modalImage={modalImage}
+          altModal={altModal}
+          handleToggleModal={handleToggleModal}
         />
-
-        {isOpen && (
-          <Modal
-            modalImage={modalImage}
-            altModal={altModal}
-            handleToggleModal={this.handleToggleModal}
-          />
-        )}
-        {gallery.length > 0 && page !== max && (
-          <Button handleBtnLoadMore={this.handleBtnLoadMore} />
-        )}
-      </StyledApp>
-    );
-  }
-}
+      )}
+    </StyledApp>
+  );
+};
 
 export default App;
